@@ -1,34 +1,34 @@
-from django.http import HttpResponse
-from .models import Question
+from django.http import HttpResponse, HttpResponseRedirect
+from django.shortcuts import render, get_object_or_404
+from django.urls import reverse
+from django.views import generic
+from .models import Choice, Question
 
-def index(request):
-    """show the last 5 question entries
-    Request: polls/
-    """
-    latest_question_list = Question.objects.order_by('-pub_date')[:5]
-    output = ', '.join([q.question_text for q in latest_question_list])
-    return HttpResponse(output)
+class IndexView(generic.ListView):
+    template_name = './index.html'
+    context_object_name = 'latest_question_list'
 
-def detail(request, question_id):
-    """show details of a question by its id
-    Request: polls/15
-    """
+    def get_queryset(self):
+        """Return the last five published questions."""
+        return Question.objects.order_by('-pub_date')[:5]
 
-    return HttpResponse("aqui fica a questão %s." % question_id)
+class DetailView(generic.DetailView):
+    model = Question
+    template_name = './detail.html'
 
-def results(request, question_id):
-    """show vote results of a question
-    Request: polls/15/results
-    """
-
-    response = "aqui fica os resultados da questão %s"
-    return HttpResponse(response % question_id)
+class ResultsView(generic.DetailView):
+    model = Question
+    template_name = './results.html'
 
 def vote(request, question_id):
     """vote a question by its id
-
-    Request:
-        polls/15/vote
-    """
-
-    return HttpResponse("voce esta votando na questão %s" % question_id)
+    Request:polls/15/vote"""
+    question = get_object_or_404(Question, pk=question_id)
+    try:
+        selected_choice = question.choice_set.get(pk=request.POST['choice'])
+    except (KeyError, Choice.DoesNotExist):
+        return render(request, './detail.html', {'question': question,'error_message': "You didn't select a choice.",})
+    else:
+        selected_choice.votes += 1
+        selected_choice.save()    
+    return HttpResponseRedirect(reverse('polls:results', args=(question.id,)))
